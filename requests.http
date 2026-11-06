@@ -1,0 +1,136 @@
+### Use with the VS Code "REST Client" extension. Run top to bottom.
+@base = http://localhost:3000
+
+### 0. Health check
+GET {{base}}/
+
+### 1. Create author
+# @name author1
+POST {{base}}/authors
+Content-Type: application/json
+
+{ "name": "Chinua Achebe", "country": "Nigeria", "bio": "Nigerian novelist" }
+
+###
+@authorId = {{author1.response.body._id}}
+
+### 2. Create a second author
+# @name author2
+POST {{base}}/authors
+Content-Type: application/json
+
+{ "name": "Ngugi wa Thiong'o", "country": "Kenya" }
+
+###
+@author2Id = {{author2.response.body._id}}
+
+### 3. Get all authors
+GET {{base}}/authors
+
+### 4. Get one author
+GET {{base}}/authors/{{authorId}}
+
+### 5. Update author
+PUT {{base}}/authors/{{authorId}}
+Content-Type: application/json
+
+{ "name": "Chinua Achebe", "country": "Nigeria", "bio": "Author of Things Fall Apart" }
+
+### 6. Create book (author must exist)
+# @name book1
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Things Fall Apart", "genre": "Fiction", "price": 20, "publishedYear": 1958, "author": "{{authorId}}" }
+
+###
+@bookId = {{book1.response.body._id}}
+
+### 7. More books for filtering and stats
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Anthills of the Savannah", "genre": "Fiction", "price": 35.5, "publishedYear": 1987, "author": "{{authorId}}" }
+
+###
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "The Silent Sea", "genre": "Thriller", "price": 24.99, "publishedYear": 2021, "author": "{{authorId}}" }
+
+### 8. Get all books (author is populated)
+GET {{base}}/books
+
+### 9. Get one book
+GET {{base}}/books/{{bookId}}
+
+### 10. Update book
+PUT {{base}}/books/{{bookId}}
+Content-Type: application/json
+
+{ "price": 22.5 }
+
+### 11. Books by author
+GET {{base}}/authors/{{authorId}}/books
+
+########## PART 4 - BUSINESS RULES ##########
+
+### Rule 1 - orphan book -> 400
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Ghost Book", "genre": "Fiction", "price": 10, "publishedYear": 2000, "author": "64b7f0f0f0f0f0f0f0f0f0f0" }
+
+### Rule 2 - duplicate title, different casing, same author -> 409
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "things fall apart", "genre": "Fiction", "price": 20, "publishedYear": 1958, "author": "{{authorId}}" }
+
+### Rule 2 - same title, DIFFERENT author -> 201 (allowed)
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Things Fall Apart", "genre": "Fiction", "price": 12, "publishedYear": 1960, "author": "{{author2Id}}" }
+
+### Rule 3 - price 0 -> 422
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Free Book", "genre": "Fiction", "price": 0, "publishedYear": 2000, "author": "{{authorId}}" }
+
+### Rule 3 - future year -> 422
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Future Book", "genre": "Fiction", "price": 10, "publishedYear": 2099, "author": "{{authorId}}" }
+
+### Rule 3 - year before 1450 -> 422
+POST {{base}}/books
+Content-Type: application/json
+
+{ "title": "Ancient Book", "genre": "Fiction", "price": 10, "publishedYear": 1400, "author": "{{authorId}}" }
+
+### Rule 4 - delete author who still has books -> 409 (blocked)
+DELETE {{base}}/authors/{{authorId}}
+
+### Rule 5 - filters: only genre
+GET {{base}}/books?genre=Thriller
+
+### Rule 5 - filters: only minPrice
+GET {{base}}/books?minPrice=30
+
+### Rule 5 - filters: combined
+GET {{base}}/books?genre=Thriller&minPrice=10&maxPrice=30&search=sea&sort=price&order=asc
+
+### Rule 6 - author stats
+GET {{base}}/authors/{{authorId}}/stats
+
+### Challenge - pagination
+GET {{base}}/books?page=1&limit=2&sort=title&order=asc
+
+### 404 examples
+GET {{base}}/books/64b7f0f0f0f0f0f0f0f0f0f0
+
+###
+DELETE {{base}}/books/{{bookId}}

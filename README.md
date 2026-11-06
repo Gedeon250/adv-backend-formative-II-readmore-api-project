@@ -198,3 +198,60 @@ Submit a **a Github repository link** containing your project code. The reposito
 
 Good luck — build it one endpoint at a time, and test each in your API client before moving on.
 ---
+
+---
+
+# My Implementation
+
+## Run it
+
+```bash
+npm install
+cp .env.example .env     # then put your own MongoDB connection string in .env
+npm run dev              # or: npm start
+```
+
+`.env`:
+```
+MONGODB_URI=mongodb://127.0.0.1:27017/readmore
+PORT=3000
+```
+
+## Endpoints
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/` | Health check |
+| POST / GET | `/authors` | Create / list authors |
+| GET / PUT / DELETE | `/authors/:id` | 404 if not found |
+| GET | `/authors/:id/books` | All books by that author |
+| GET | `/authors/:id/stats` | bookCount, averagePrice, cheapestBook, mostExpensiveBook |
+| POST / GET | `/books` | GET supports filters, sort, pagination |
+| GET / PUT / DELETE | `/books/:id` | Author is populated; 404 if not found |
+
+## Business rules and status codes
+
+| Rule | Status |
+|---|---|
+| Book with an author id that doesn't exist (or isn't a valid id) | 400 |
+| Same title for the same author, case-insensitive | 409 |
+| `price` <= 0, or `publishedYear` < 1450 or in the future | 422 |
+| Delete an author who still has books | 409 |
+| Unknown id (valid format, not in DB) | 404 |
+| Malformed id, bad query param, missing required field | 400 |
+
+## Author delete policy: Option A (block)
+
+I block the delete and return 409 if the author still has books.
+
+**Why:** a bookstore's books may already be sold, ordered or listed. Deleting them (cascade) destroys sales history, and moving them to a fallback author (reassign) puts a wrong name on real books. Blocking is the safest: nothing is lost and nothing is wrongly credited.
+
+**Downside:** an admin has to delete or move the books first, so cleaning up an author takes more steps.
+
+## Filtering
+
+`GET /books` builds the Mongo filter object dynamically: each param (`genre`, `author`, `search`, `minPrice`, `maxPrice`) only adds a condition if it is present. No params = every book. `sort` is checked against `price`, `title`, `publishedYear`. If `page` or `limit` is sent, results are paginated and the response is `{ page, limit, total, results }`.
+
+## Stats with no books
+
+Returns `bookCount: 0`, `averagePrice: 0`, and `null` for `cheapestBook` and `mostExpensiveBook`.
